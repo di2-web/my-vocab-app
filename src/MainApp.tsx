@@ -1,9 +1,5 @@
 // src/App.tsx
 import { useState, useEffect, useCallback, useRef } from 'react';
-import Auth from './Auth';
-import AccessGate from './AccessGate';
-import { useAuth } from './useAuth';
-import { supabase } from './lib/supabase';
 import type { WordData } from './types';
 import { useQuizLogic } from './useQuizLogic';
 import wordsData from './words.json';
@@ -11,9 +7,16 @@ import wordsData from './words.json';
 type Screen = 'HOME' | 'QUIZ';
 type QuestionData = { word: WordData; choices: string[] };
 
-// --- 元々の App コンポーネント (MainApp にリネーム) ---
-function MainApp() {
+// 👇追加：受け取るPropsの型を定義
+type MainAppProps = {
+  userId: string;
+};
+
+// 👇修正：Propsとして userId を受け取る
+function MainApp({ userId }: MainAppProps) {
   const allWords = wordsData as WordData[];
+
+  // 🌟 UIはロジックから渡されたデータと関数を使うだけ
   const { userData, stats, generateNextQuestion, handleAnswer, resetSession } = useQuizLogic(allWords);
 
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
@@ -25,6 +28,7 @@ function MainApp() {
 
   const [screen, setScreen] = useState<Screen>('HOME');
   const [sessionCount, setSessionCount] = useState(0);
+
   const [currentQuestion, setCurrentQuestion] = useState<QuestionData | null>(null);
   const [answeredResult, setAnsweredResult] = useState<'correct' | 'wrong' | 'skip' | null>(null);
   const [startTime, setStartTime] = useState<number>(0);
@@ -37,6 +41,7 @@ function MainApp() {
   }, []);
 
   const loadQuestion = useCallback(() => {
+    // 🌟 選択肢の数 (スマホは4、PCは8) を指定して問題を生成してもらう
     const nextQ = generateNextQuestion(isMobile ? 4 : 8);
     if (!nextQ) {
       setScreen('HOME');
@@ -70,6 +75,8 @@ function MainApp() {
 
   const onAnswerClick = useCallback((choice: string | null) => {
     if (!currentQuestion || answeredResult) return;
+
+    // 🔥 ChatGPT指摘対応：ボタンを押した瞬間に、古いタイマーが残っていれば確実に消す
     if (timerRef.current) clearTimeout(timerRef.current);
 
     const responseTime = (Date.now() - startTime) / 1000;
@@ -83,6 +90,7 @@ function MainApp() {
     setAnsweredResult(result);
     handleAnswer(word.id, result, responseTime);
 
+    // 🔥 Claude指摘対応：スマホでも、間違えた時・Skip時は自動進行させず、答えを確認させる！
     if (isMobile && result === 'correct') {
       timerRef.current = window.setTimeout(goNext, 800);
     }
@@ -117,15 +125,12 @@ function MainApp() {
 
   return (
     <div style={{ maxWidth: '600px', width: '100%', margin: '0 auto', padding: isMobile ? '10px' : '20px', fontFamily: 'sans-serif', boxSizing: 'border-box' }}>
+
       {screen === 'HOME' && (
         <div style={{ marginTop: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h1 style={{ flexGrow: 1, textAlign: 'center', margin: '0' }}>英単語アプリ</h1>
-            <button onClick={() => supabase.auth.signOut()} style={{ padding: '8px 12px', fontSize: '12px', backgroundColor: '#e0e0e0', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>ログアウト</button>
-          </div>
-
-          <div style={{ backgroundColor: '#f9f9f9', padding: '20px', borderRadius: '10px', marginTop: '20px' }}>
-            <h3 style={{ margin: '0 0 15px 0' }}>📈 あなたの学習状況 (Default Deck)</h3>
+          <h1 style={{ textAlign: 'center' }}>英単語アプリ</h1>
+          <div style={{ backgroundColor: '#f9f9f9', padding: '20px', borderRadius: '10px' }}>
+            <h3 style={{ margin: '0 0 15px 0' }}>📈 あなたの学習状況</h3>
             <p>総解答数: <strong>{userData.globalCount} 問</strong></p>
             <div style={{ display: 'flex', height: '20px', backgroundColor: '#e0e0e0', borderRadius: '10px', overflow: 'hidden', margin: '15px 0' }}>
               <div style={{ width: `${(stats.learnedCount / stats.totalWords) * 100}%`, backgroundColor: '#4caf50' }} />
@@ -204,6 +209,7 @@ function MainApp() {
                 </h3>
 
                 {isMobile ? (
+                  // 🔥 スマホで不正解時は、自動進行しないので「次へ」ボタンを出す
                   <>
                     {answeredResult !== 'correct' && <p style={{ fontSize: '20px', margin: '0 0 15px 0' }}><strong>{currentQuestion.word.quiz.answer}</strong></p>}
                     {answeredResult !== 'correct' && (
@@ -234,22 +240,4 @@ function MainApp() {
   );
 }
 
-// --- 新しい App コンポーネント (全体のコントローラー) ---
-export default function App() {
-  const { user, isVerified, setIsVerified, loading } = useAuth();
-
-  if (loading) {
-    return <div style={{ textAlign: 'center', marginTop: '50px', fontSize: '20px' }}>読み込み中...</div>;
-  }
-
-  if (!user) {
-    return <Auth />;
-  }
-
-  if (!isVerified) {
-    return <AccessGate onVerified={() => setIsVerified(true)} />;
-  }
-
-  // 認証・アクセスコードの確認を通過したら、メインアプリを表示！
-  return <MainApp />;
-}
+export default MainApp;

@@ -20,7 +20,6 @@ export const useQuizLogic = (allWords: WordData[]) => {
     setSessionUsedIds(new Set());
   }, []);
 
-  // 内部関数：純粋に「次の単語」を選ぶだけ
   const getNextWord = useCallback((): WordData | null => {
     const { globalCount, progress } = userData;
 
@@ -50,22 +49,18 @@ export const useQuizLogic = (allWords: WordData[]) => {
     return null;
   }, [allWords, userData, sessionUsedIds]);
 
-  // 🌟 外部に公開する「問題生成API」（UIに依存しない設計）
   const generateNextQuestion = useCallback((numChoices: number) => {
     const word = getNextWord();
     if (!word) return null;
 
-    // 🔥 Claude指摘対応：問題が決まった時点で出題済みにする（連続出題防止）
     setSessionUsedIds(prev => new Set(prev).add(word.id));
 
-    // 🔥 ChatGPT指摘対応：選択肢の生成はロジック側の責務とする
     const distractors = [...word.quiz.distractors].sort(() => Math.random() - 0.5).slice(0, numChoices - 1);
     const choices = [word.quiz.answer, ...distractors].sort(() => Math.random() - 0.5);
 
     return { word, choices };
   }, [getNextWord]);
 
-  // 回答処理
   const handleAnswer = useCallback((wordId: number, result: 'correct' | 'wrong' | 'skip', responseTime: number) => {
     setUserData(prev => {
       const currentProgress = prev.progress[wordId] || { stage: 0, correctCount: 0, wrongCount: 0 };
@@ -93,7 +88,6 @@ export const useQuizLogic = (allWords: WordData[]) => {
             stage: newStage,
             nextShowAt: prev.globalCount + 1 + addedInterval,
             correctCount: currentProgress.correctCount + (result === 'correct' ? 1 : 0),
-            // 🔥 Claude指摘対応：skipは「間違えたわけではない」としてwrongCountから除外
             wrongCount: currentProgress.wrongCount + (result === 'wrong' ? 1 : 0),
             lastResponseTime: responseTime
           }
@@ -102,7 +96,6 @@ export const useQuizLogic = (allWords: WordData[]) => {
     });
   }, []);
 
-  // 🌟 ChatGPT＆Claude指摘対応：分析データをHook内で計算し、App.tsxを綺麗にする
   const stats = useMemo(() => {
     const totalWords = allWords.length;
     const learnedCount = Object.values(userData.progress).filter(p => p.stage === 2).length;
