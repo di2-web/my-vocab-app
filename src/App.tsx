@@ -8,14 +8,15 @@ import DeckManager from './DeckManager';
 import DeckEditor from './DeckEditor';
 import StudyScreen from './StudyScreen';
 import type { Deck } from './useDecks';
+import Dashboard from './Dashboard';
 
 // ------ MainApp コンポーネント ------
 function MainApp({ user }: { user: any }) {
-  const [screen, setScreen] = useState<'DECKS' | 'STUDY' | 'EDIT'>('DECKS');
+  // 🌟 DASHBOARD を追加
+  const [screen, setScreen] = useState<'DECKS' | 'STUDY' | 'EDIT' | 'DASHBOARD'>('DECKS');
   const [selectedDeck, setSelectedDeck] = useState<Deck | null>(null);
 
   const handleSelectStudy = (deck: Deck) => {
-    // 💡 alertを消して、そのままセットして画面を切り替える
     setSelectedDeck(deck);
     setScreen('STUDY');
   };
@@ -33,7 +34,12 @@ function MainApp({ user }: { user: any }) {
       </div>
 
       {screen === 'DECKS' && (
-        <DeckManager userId={user.id} onSelectStudy={handleSelectStudy} onSelectEdit={handleSelectEdit} />
+        <DeckManager
+          userId={user.id}
+          onSelectStudy={handleSelectStudy}
+          onSelectEdit={handleSelectEdit}
+          onOpenDashboard={() => setScreen('DASHBOARD')} // 🌟 これを追加
+        />
       )}
 
       {screen === 'STUDY' && selectedDeck && (
@@ -42,6 +48,15 @@ function MainApp({ user }: { user: any }) {
 
       {screen === 'EDIT' && selectedDeck && (
         <DeckEditor deck={selectedDeck} onBack={() => setScreen('DECKS')} />
+      )}
+
+      {/* 🌟 ダッシュボード画面の追加 */}
+      {screen === 'DASHBOARD' && (
+        <Dashboard
+          userId={user.id}
+          onBack={() => setScreen('DECKS')}
+          onStartWeakStudy={handleSelectStudy}
+        />
       )}
     </div>
   );

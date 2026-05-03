@@ -6,9 +6,10 @@ type Props = {
   userId: string;
   onSelectStudy: (deck: Deck) => void;
   onSelectEdit: (deck: Deck) => void;
+  onOpenDashboard: () => void; // 🌟 これを追加
 };
 
-export default function DeckManager({ userId, onSelectStudy, onSelectEdit }: Props) {
+export default function DeckManager({ userId, onSelectStudy, onSelectEdit, onOpenDashboard }: Props) {
   const { decks, loading, createDeck } = useDecks(userId);
   const [newDeckName, setNewDeckName] = useState('');
 
@@ -22,6 +23,15 @@ export default function DeckManager({ userId, onSelectStudy, onSelectEdit }: Pro
 
   return (
     <div style={{ maxWidth: '600px', margin: '0 auto', padding: '20px' }}>
+
+      {/* 🌟 グラフを開く大きなボタンを追加！ */}
+      <button
+        onClick={onOpenDashboard}
+        style={{ width: '100%', padding: '15px', backgroundColor: '#673ab7', color: 'white', fontSize: '18px', fontWeight: 'bold', border: 'none', borderRadius: '10px', cursor: 'pointer', marginBottom: '30px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
+      >
+        📊 総合分析 ＆ 苦手特訓ダッシュボード
+      </button>
+
       <h2 style={{ textAlign: 'center' }}>📚 学習セットを選ぶ</h2>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginBottom: '30px' }}>

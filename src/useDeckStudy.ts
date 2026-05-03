@@ -33,18 +33,37 @@ export const useDeckStudy = (userId: string, deckId: string) => {
 
       // 1. 単語リストの準備
       if (deckId === 'default') {
-        // 🌟 公式セットの場合: JSONデータを WordRow 形式に変換
         const mapped = (wordsData as any[]).map(w => ({
-          id: String(w.id), // IDを文字列にする
-          word: w.word,
-          meaning: w.quiz.answer,
-          example_en: w.example.en,
-          example_ja: w.example.ja,
-          choices: w.quiz.distractors
+          id: String(w.id), word: w.word, meaning: w.quiz.answer,
+          example_en: w.example.en, example_ja: w.example.ja, choices: w.quiz.distractors
         }));
         setWords(mapped);
+
+      } else if (deckId === 'weak') {
+        // 🌟🔥 苦手特訓モード（仮想デッキ）
+        const { data: pwData } = await supabase.from('progress').select('word_id').eq('user_id', userId).gt('wrong_count', 0);
+        const weakIds = pwData ? pwData.map(p => p.word_id) :[];
+
+        // 公式データからの抽出
+        const mappedDefault = (wordsData as any[])
+          .filter(w => weakIds.includes(String(w.id)))
+          .map(w => ({
+            id: String(w.id), word: w.word, meaning: w.quiz.answer,
+            example_en: w.example.en, example_ja: w.example.ja, choices: w.quiz.distractors
+          }));
+
+        // 自作データからの抽出（UUID形式のIDを持つもの）
+        const customIds = weakIds.filter(id => id.length > 10);
+        let customWords: WordRow[] =[];
+        if (customIds.length > 0) {
+          const { data: cwData } = await supabase.from('words').select('*').in('id', customIds);
+          if (cwData) customWords = cwData;
+        }
+        
+        setWords([...mappedDefault, ...customWords]);
+
       } else {
-        // 自作セットの場合: Supabaseから取得
+        // 自作セットの場合
         const { data: wData } = await supabase.from('words').select('*').eq('deck_id', deckId);
         if (wData) setWords(wData);
       }
@@ -76,15 +95,23 @@ export const useDeckStudy = (userId: string, deckId: string) => {
   const generateNextQuestion = useCallback((numChoices: number) => {
     const word = getNextWord();
     if (!word) return null;
+    
     setSessionUsedIds(prev => new Set(prev).add(word.id));
+    
     const answer = word.meaning;
-    let distractors = word.choices || [];
+    let distractors = word.choices ||[];
+    
+    // 足りない場合は他の単語の意味を借りてくる
     if (distractors.length < numChoices - 1) {
       const others = words.filter(w => w.id !== word.id).map(w => w.meaning).filter(Boolean);
       others.sort(() => Math.random() - 0.5);
-      distractors = [...new Set([...distractors, ...others])].slice(0, numChoices - 1);
+      distractors = [...new Set([...distractors, ...others])];
     }
-    const choices = [answer, ...distractors].sort(() => Math.random() - 0.5);
+    
+    // 💡 確実に指定した数 (numChoices - 1) に切り詰める！
+    distractors = distractors.slice(0, numChoices - 1);
+    
+    const choices =[answer, ...distractors].sort(() => Math.random() - 0.5);
     return { word, choices };
   }, [getNextWord, words]);
 
