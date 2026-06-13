@@ -1,0 +1,58 @@
+[
+  {
+    "id": 1,
+    "word": "improve",
+    "core": "向上させる",
+    "details": [
+      {
+        "pos": ["動"],
+        "items": ["向上させる", "改善する"]
+      }
+    ],
+    "example": {
+      "en": "We need to improve our English skills.",
+      "ja": "私たちは英語力を向上させる必要がある。"
+    },
+    "quiz": {
+      "answer": "向上させる",
+      "distractors": [
+        "怠る",
+        "崩壊する",
+        "忘れる",
+        "減少する"
+      ]
+    },
+    "audio": {
+      "tango": "",
+      "reibun": ""
+    }
+  },
+  {
+    "id": 2,
+    "word": "provide",
+    "core": "提供する",
+    "details": [
+      {
+        "pos": ["動"],
+        "items": ["提供する", "与える"]
+      }
+    ],
+    "example": {
+      "en": "The website provides useful information.",
+      "ja": "そのウェブサイトは役立つ情報を提供する。"
+    },
+    "quiz": {
+      "answer": "提供する",
+      "distractors": [
+        "奪う",
+        "隠す",
+        "消費する",
+        "拒否する"
+      ]
+    },
+    "audio": {
+      "tango": "",
+      "reibun": ""
+    }
+  }
+]

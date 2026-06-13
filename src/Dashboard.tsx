@@ -1,8 +1,10 @@
 // src/Dashboard.tsx
 import { useState, useEffect } from 'react';
 import { supabase } from './lib/supabase';
-import wordsData from './words.json';
+import toshinDataRaw from './words_toshin1800.json';
+import targetDataRaw from './words_target1900.json';
 import type { Deck } from './useDecks';
+import type { WordData } from './useDeckStudy';
 
 type Props = {
   userId: string;
@@ -10,9 +12,21 @@ type Props = {
   onStartWeakStudy: (deck: Deck) => void;
 };
 
+type WeakRankingItem = {
+  word_id: string;
+  stage: number;
+  next_show_at: number;
+  correct_count: number;
+  wrong_count: number;
+  wordInfo: {
+    word: string;
+    meaning: string;
+  };
+};
+
 export default function Dashboard({ userId, onBack, onStartWeakStudy }: Props) {
   const [stats, setStats] = useState({ totalAnswers: 0, accuracy: 0, learned: 0, learning: 0 });
-  const [weakRanking, setWeakRanking] = useState<any[]>([]);
+  const [weakRanking, setWeakRanking] = useState<WeakRankingItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -51,17 +65,28 @@ export default function Dashboard({ userId, onBack, onStartWeakStudy }: Props) {
       const weakIds = weakList.map(p => p.word_id);
       const customIds = weakIds.filter(id => id.length > 10);
 
-      let customWords: any[] = [];
+      let customWords: Array<{ id: string; word: string; meaning: string }> = [];
       if (customIds.length > 0) {
         const { data: cwData } = await supabase.from('words').select('id, word, meaning').in('id', customIds);
-        if (cwData) customWords = cwData;
+        if (cwData) customWords = cwData as Array<{ id: string; word: string; meaning: string }>;
       }
 
-      const defaultWords = (wordsData as any[])
-        .filter(w => weakIds.includes(String(w.id)))
-        .map(w => ({ id: String(w.id), word: w.word, meaning: w.quiz.answer }));
+      const defaultWordsToshin = (toshinDataRaw as WordData[]).map(w => ({
+        id: String(w.id),
+        word: w.word,
+        meaning: w.quiz.answer
+      }));
 
-      const allWords = [...customWords, ...defaultWords];
+      const defaultWordsTarget = (targetDataRaw as WordData[]).map(w => ({
+        id: `target_${w.id}`,
+        word: w.word,
+        meaning: w.quiz.answer
+      }));
+
+      const defaultWords = [...defaultWordsToshin, ...defaultWordsTarget];
+      const defaultWordsFiltered = defaultWords.filter(w => weakIds.includes(w.id));
+
+      const allWords = [...customWords, ...defaultWordsFiltered];
 
       const ranking = weakList.map(p => {
         const wordInfo = allWords.find(w => w.id === p.word_id);

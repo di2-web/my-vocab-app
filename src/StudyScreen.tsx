@@ -3,9 +3,10 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useDeckStudy, type WordRow } from './useDeckStudy';
 import { useAudio } from './useAudio';
 import type { Deck } from './useDecks';
+import type { User } from '@supabase/supabase-js';
 
 type Props = {
-  user: any;
+  user: User;
   deck: Deck;
   onBack: () => void;
 };
@@ -41,7 +42,8 @@ export default function StudyScreen({ user, deck, onBack }: Props) {
     }
     setCurrentQuestion(nextQ);
     setAnsweredResult(null);
-    playAudio(nextQ.word.word);
+    // 🌟 音声ファイルがあればそちらを優先再生
+    playAudio(nextQ.word.word, nextQ.word.audio_tango);
   }, [generateNextQuestion, playAudio, isMobile]);
 
   const startSession = () => {
@@ -150,7 +152,7 @@ export default function StudyScreen({ user, deck, onBack }: Props) {
           </h2>
 
           <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-            <button onClick={() => playAudio(currentQuestion.word.word)} style={{ padding: '8px 16px', fontSize: '14px', borderRadius: '20px', border: '1px solid #ccc', cursor: 'pointer', backgroundColor: 'white' }}>
+            <button onClick={() => playAudio(currentQuestion.word.word, currentQuestion.word.audio_tango)} style={{ padding: '8px 16px', fontSize: '14px', borderRadius: '20px', border: '1px solid #ccc', cursor: 'pointer', backgroundColor: 'white' }}>
               🔊 発音を聞く
             </button>
           </div>
@@ -195,7 +197,7 @@ export default function StudyScreen({ user, deck, onBack }: Props) {
               {currentQuestion.word.example_en && (
                 <p>
                   <strong>例文:</strong> {currentQuestion.word.example_en}
-                  <button onClick={() => playAudio(currentQuestion.word.example_en)} style={{ marginLeft: '10px', padding: '5px', borderRadius: '50%', border: 'none', background: '#ddd', cursor: 'pointer' }}>🔊</button>
+                  <button onClick={() => playAudio(currentQuestion.word.example_en, currentQuestion.word.audio_reibun)} style={{ marginLeft: '10px', padding: '5px', borderRadius: '50%', border: 'none', background: '#ddd', cursor: 'pointer' }}>🔊</button>
                 </p>
               )}
               {currentQuestion.word.example_ja && <p style={{ fontSize: '14px', color: '#555' }}>{currentQuestion.word.example_ja}</p>}

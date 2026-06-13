@@ -9,9 +9,10 @@ import DeckEditor from './DeckEditor';
 import StudyScreen from './StudyScreen';
 import type { Deck } from './useDecks';
 import Dashboard from './Dashboard';
+import type { User } from '@supabase/supabase-js';
 
 // ------ MainApp コンポーネント ------
-function MainApp({ user }: { user: any }) {
+function MainApp({ user }: { user: User }) {
   // 🌟 DASHBOARD を追加
   const [screen, setScreen] = useState<'DECKS' | 'STUDY' | 'EDIT' | 'DASHBOARD'>('DECKS');
   const [selectedDeck, setSelectedDeck] = useState<Deck | null>(null);

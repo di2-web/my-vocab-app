@@ -92,11 +92,11 @@ export default function DeckEditor({ deck, onBack }: Props) {
     const reader = new FileReader();
     reader.onload = async (event) => {
       try {
-        const importedList = JSON.parse(event.target?.result as string);
+        const importedList = JSON.parse(event.target?.result as string) as Array<{ word: string; meaning?: string; example_en?: string; example_ja?: string; choices?: string[] }>;
         await processAndSaveList(importedList);
         alert('JSONインポート完了！');
-      } catch (err: any) {
-        alert('読み込み失敗: ' + err.message);
+      } catch (err: unknown) {
+        alert('読み込み失敗: ' + (err instanceof Error ? err.message : String(err)));
       }
       if (fileInputRef.current) fileInputRef.current.value = '';
     };
@@ -135,19 +135,19 @@ export default function DeckEditor({ deck, onBack }: Props) {
 
       setAiText('');
       setAiImageFile(null);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      alert('AI生成エラー: ' + err.message);
+      alert('AI生成エラー: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setIsAIGenerating(false);
     }
   };
 
   // （共通）取得したリストを差分更新でデータベースに保存する関数
-  const processAndSaveList = async (list: any[]) => {
+  const processAndSaveList = async (list: Array<{ word: string; meaning?: string; example_en?: string; example_ja?: string; choices?: string[] }>) => {
     if (!Array.isArray(list)) throw new Error('データ形式が間違っています');
-    const updates: any[] = [];
-    const inserts: any[] = [];
+    const updates: Array<Partial<WordRow> & { id: string }> = [];
+    const inserts: Array<Omit<WordRow, 'id'>> = [];
 
     list.forEach(item => {
       const existing = words.find(w => w.word.toLowerCase() === item.word.toLowerCase());
