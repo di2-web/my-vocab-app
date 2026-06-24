@@ -44,7 +44,6 @@ export default function Dashboard({ userId, onBack, onStartWeakStudy }: Props) {
       let learned = 0;
       let learning = 0;
 
-      // 苦手ランキング用の箱
       const weakList = pData.filter(p => p.wrong_count > 0).sort((a, b) => b.wrong_count - a.wrong_count).slice(0, 10);
 
       pData.forEach(p => {
@@ -61,7 +60,6 @@ export default function Dashboard({ userId, onBack, onStartWeakStudy }: Props) {
         learning
       });
 
-      // 苦手ランキングの実単語データを取得して合体させる
       const weakIds = weakList.map(p => p.word_id);
       const customIds = weakIds.filter(id => id.length > 10);
 
@@ -101,49 +99,52 @@ export default function Dashboard({ userId, onBack, onStartWeakStudy }: Props) {
   }, [userId]);
 
   const handleStartWeak = () => {
-    // 💡 仮想デッキ「weak」を渡して学習画面を起動
-    onStartWeakStudy({ id: 'weak', name: '🔥 苦手特訓モード' });
+    onStartWeakStudy({ id: 'weak', name: '苦手特訓モード' });
   };
 
-  if (loading) return <div style={{ textAlign: 'center', marginTop: '50px' }}>データ分析中...</div>;
+  if (loading) return <div style={{ textAlign: 'center', marginTop: '50px', color: 'var(--text)' }}>データ分析中...</div>;
 
   return (
     <div style={{ padding: '20px', maxWidth: '600px', margin: '0 auto' }}>
-      <button onClick={onBack} style={{ marginBottom: '20px', cursor: 'pointer' }}>← セット一覧に戻る</button>
+      <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '20px' }}>
+        <button className="btn btn-secondary" onClick={onBack}>一覧に戻る</button>
+      </div>
 
-      <h2 style={{ textAlign: 'center', marginBottom: '20px' }}>📊 総合分析ダッシュボード</h2>
+      <h2 style={{ textAlign: 'center', marginBottom: '25px', color: 'var(--text-h)' }}>総合分析ダッシュボード</h2>
 
       {stats.totalAnswers === 0 ? (
-        <p style={{ textAlign: 'center' }}>まだ学習データがありません。クイズをプレイしてデータを集めましょう！</p>
+        <p style={{ textAlign: 'center', color: 'var(--text)' }}>学習データがありません。クイズをプレイしてデータを集めましょう。</p>
       ) : (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '30px' }}>
-            <div style={{ backgroundColor: '#e3f2fd', padding: '20px', borderRadius: '10px', textAlign: 'center' }}>
-              <div style={{ fontSize: '14px', color: '#1565c0' }}>総解答数</div>
-              <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#0d47a1' }}>{stats.totalAnswers} <span style={{ fontSize: '16px' }}>問</span></div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '30px' }}>
+            <div style={{ backgroundColor: 'var(--code-bg)', padding: '16px', borderRadius: '8px', textAlign: 'center', border: '1px solid var(--border)' }}>
+              <div style={{ fontSize: '13px', color: 'var(--text)' }}>総解答数</div>
+              <div style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--text-h)' }}>{stats.totalAnswers} <span style={{ fontSize: '14px', fontWeight: 'normal' }}>問</span></div>
             </div>
-            <div style={{ backgroundColor: '#e8f5e9', padding: '20px', borderRadius: '10px', textAlign: 'center' }}>
-              <div style={{ fontSize: '14px', color: '#2e7d32' }}>全体正答率</div>
-              <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#1b5e20' }}>{stats.accuracy} <span style={{ fontSize: '16px' }}>%</span></div>
+            <div style={{ backgroundColor: 'var(--code-bg)', padding: '16px', borderRadius: '8px', textAlign: 'center', border: '1px solid var(--border)' }}>
+              <div style={{ fontSize: '13px', color: 'var(--text)' }}>全体正答率</div>
+              <div style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--text-h)' }}>{stats.accuracy} <span style={{ fontSize: '14px', fontWeight: 'normal' }}>%</span></div>
             </div>
-            <div style={{ backgroundColor: '#fff8e1', padding: '20px', borderRadius: '10px', textAlign: 'center' }}>
-              <div style={{ fontSize: '14px', color: '#f57f17' }}>習得済み単語</div>
-              <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#f57f17' }}>{stats.learned} <span style={{ fontSize: '16px' }}>語</span></div>
+            <div style={{ backgroundColor: 'var(--code-bg)', padding: '16px', borderRadius: '8px', textAlign: 'center', border: '1px solid var(--border)' }}>
+              <div style={{ fontSize: '13px', color: 'var(--text)' }}>習得済み単語</div>
+              <div style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--text-h)' }}>{stats.learned} <span style={{ fontSize: '14px', fontWeight: 'normal' }}>語</span></div>
             </div>
-            <div style={{ backgroundColor: '#f3e5f5', padding: '20px', borderRadius: '10px', textAlign: 'center' }}>
-              <div style={{ fontSize: '14px', color: '#6a1b9a' }}>学習中の単語</div>
-              <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#6a1b9a' }}>{stats.learning} <span style={{ fontSize: '16px' }}>語</span></div>
+            <div style={{ backgroundColor: 'var(--code-bg)', padding: '16px', borderRadius: '8px', textAlign: 'center', border: '1px solid var(--border)' }}>
+              <div style={{ fontSize: '13px', color: 'var(--text)' }}>学習中の単語</div>
+              <div style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--text-h)' }}>{stats.learning} <span style={{ fontSize: '14px', fontWeight: 'normal' }}>語</span></div>
             </div>
           </div>
 
-          <div style={{ backgroundColor: '#ffebee', padding: '20px', borderRadius: '10px', marginBottom: '20px' }}>
-            <h3 style={{ margin: '0 0 15px 0', color: '#d32f2f' }}>⚠️ 苦手な単語トップ10</h3>
-            {weakRanking.length === 0 ? <p>苦手な単語はありません！素晴らしい！</p> : (
-              <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '16px' }}>
+          <div style={{ backgroundColor: 'var(--code-bg)', padding: '20px', borderRadius: '8px', marginBottom: '30px', border: '1px solid var(--border)' }}>
+            <h3 style={{ margin: '0 0 15px 0', fontSize: '16px', color: 'var(--text-h)' }}>苦手な単語トップ10</h3>
+            {weakRanking.length === 0 ? (
+              <p style={{ color: 'var(--text)', fontSize: '14px' }}>苦手な単語はありません。</p>
+            ) : (
+              <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '14px', color: 'var(--text-h)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {weakRanking.map(r => (
-                  <li key={r.word_id} style={{ marginBottom: '8px' }}>
-                    <strong>{r.wordInfo.word}</strong> ({r.wordInfo.meaning})
-                    <span style={{ color: '#d32f2f', marginLeft: '10px' }}>❌ {r.wrong_count}回ミス</span>
+                  <li key={r.word_id}>
+                    <strong>{r.wordInfo.word}</strong> <span style={{ color: 'var(--text)' }}>({r.wordInfo.meaning})</span>
+                    <span style={{ color: '#e53935', fontWeight: 'bold', marginLeft: '10px' }}>ミス: {r.wrong_count}回</span>
                   </li>
                 ))}
               </ul>
@@ -151,10 +152,12 @@ export default function Dashboard({ userId, onBack, onStartWeakStudy }: Props) {
           </div>
 
           <button
-            onClick={handleStartWeak} disabled={weakRanking.length === 0}
-            style={{ width: '100%', padding: '20px', fontSize: '20px', backgroundColor: weakRanking.length === 0 ? '#ccc' : '#f44336', color: 'white', border: 'none', borderRadius: '10px', cursor: weakRanking.length === 0 ? 'not-allowed' : 'pointer', fontWeight: 'bold', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
+            onClick={handleStartWeak}
+            disabled={weakRanking.length === 0}
+            className="btn btn-primary"
+            style={{ width: '100%', padding: '16px', fontSize: '16px', cursor: weakRanking.length === 0 ? 'not-allowed' : 'pointer' }}
           >
-            🔥 苦手特訓モードを開始する
+            苦手特訓モードを開始する
           </button>
         </>
       )}

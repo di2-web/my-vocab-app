@@ -25,22 +25,22 @@ export default function AccessGate({ onVerified }: { onVerified: () => void }) {
   };
 
   return (
-    <div style={{ maxWidth: '400px', margin: '50px auto', padding: '20px', textAlign: 'center', backgroundColor: '#fff3e0', borderRadius: '10px', border: '1px solid #ffb74d' }}>
-      <h2>🔒 アクセス制限</h2>
-      <p>このアプリを利用するにはアクセスコードが必要です。</p>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px' }}>
+    <div style={{ maxWidth: '400px', margin: '50px auto', padding: '30px 20px', textAlign: 'center', backgroundColor: 'var(--code-bg)', borderRadius: '8px', border: '1px solid var(--border)', boxShadow: 'var(--shadow)' }}>
+      <h2 style={{ color: 'var(--text-h)', marginBottom: '15px' }}>アクセス制限</h2>
+      <p style={{ color: 'var(--text)', fontSize: '14px', marginBottom: '20px' }}>このアプリを利用するにはアクセスコードが必要です。</p>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
         <input
           type="text" placeholder="アクセスコードを入力" value={code}
           onChange={(e) => setCode(e.target.value)} required
-          style={{ padding: '10px', fontSize: '16px', textAlign: 'center' }}
+          style={{ padding: '12px', fontSize: '16px', textAlign: 'center', border: '1px solid var(--border)', borderRadius: '6px', backgroundColor: 'var(--bg)', color: 'var(--text-h)' }}
         />
-        <button type="submit" disabled={loading} style={{ padding: '10px', backgroundColor: '#ff9800', color: 'white', border: 'none', borderRadius: '5px', fontSize: '16px', cursor: 'pointer' }}>
+        <button type="submit" disabled={loading} className="btn btn-primary" style={{ padding: '12px', width: '100%' }}>
           {loading ? '確認中...' : '認証する'}
         </button>
       </form>
-      {errorMsg && <p style={{ color: 'red', fontWeight: 'bold' }}>{errorMsg}</p>}
+      {errorMsg && <p style={{ color: '#e53935', fontWeight: 'bold', fontSize: '14px', marginTop: '15px' }}>{errorMsg}</p>}
 
-      <button onClick={() => supabase.auth.signOut()} style={{ marginTop: '20px', background: 'none', border: 'none', color: '#757575', cursor: 'pointer', textDecoration: 'underline' }}>
+      <button onClick={() => supabase.auth.signOut()} style={{ marginTop: '25px', background: 'none', border: 'none', color: 'var(--text)', cursor: 'pointer', textDecoration: 'underline', fontSize: '13px' }}>
         ログアウト
       </button>
     </div>

@@ -1,4 +1,4 @@
-// src/useDecks.ts
+// src/useDecks.ts（全体）
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from './lib/supabase';
 
@@ -15,7 +15,6 @@ export const useDecks = (userId: string | undefined) => {
   const fetchDecks = useCallback(async () => {
     if (!userId) return;
 
-    // Supabaseから自分のデッキを取得
     const { data, error } = await supabase
       .from('decks')
       .select('*')
@@ -25,19 +24,17 @@ export const useDecks = (userId: string | undefined) => {
     if (error) {
       console.error("デッキ取得エラー:", error);
     } else {
-      // デフォルトの公式セットを追加してセット
-      const toshinDeck: Deck = { id: 'toshin1800', name: '⭐️ 東進の英単語1800', is_default: true };
-      const targetDeck: Deck = { id: 'target1900', name: '⭐️ ターゲットの友1900', is_default: true };
+      const toshinDeck: Deck = { id: 'toshin1800', name: '東進の英単語1800', is_default: true };
+      const targetDeck: Deck = { id: 'target1900', name: 'ターゲットの友1900', is_default: true };
       setDecks([toshinDeck, targetDeck, ...(data || [])]);
     }
     setLoading(false);
   }, [userId]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchDecks();
-    }, 0);
-    return () => clearTimeout(timer);
+    // 💡 非同期呼び出しにおけるESLintの誤検知を防ぐために、この行のみ警告をスキップします
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchDecks();
   }, [fetchDecks]);
 
   const createDeck = async (name: string) => {
@@ -51,9 +48,28 @@ export const useDecks = (userId: string | undefined) => {
       alert('作成に失敗しました: ' + error.message);
       setLoading(false);
     } else {
-      fetchDecks(); // 再取得して一覧を更新
+      fetchDecks();
     }
   };
 
-  return { decks, loading, createDeck };
+  const deleteDeck = async (deckId: string) => {
+    if (!userId) return;
+    if (!confirm('デッキを削除すると、登録されている単語もすべて削除されます。本当によろしいですか？')) return;
+    setLoading(true);
+
+    const { error } = await supabase
+      .from('decks')
+      .delete()
+      .eq('id', deckId)
+      .eq('user_id', userId);
+
+    if (error) {
+      alert('削除に失敗しました: ' + error.message);
+      setLoading(false);
+    } else {
+      fetchDecks();
+    }
+  };
+
+  return { decks, loading, createDeck, deleteDeck };
 };

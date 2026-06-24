@@ -1,8 +1,8 @@
 // src/useDeckStudy.ts
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from './lib/supabase';
-import toshinDataRaw from './words_toshin1800.json'; // 🌟 東進データをインポート
-import targetDataRaw from './words_target1900.json'; // 🌟 ターゲットデータをインポート
+import toshinDataRaw from './words_toshin1800.json';
+import targetDataRaw from './words_target1900.json';
 
 export interface WordData {
   id: number;
@@ -36,8 +36,8 @@ export type WordRow = {
   example_en: string;
   example_ja: string;
   choices: string[];
-  audio_tango?: string;  // 単語の音声ファイル名
-  audio_reibun?: string; // 例文の音声ファイル名
+  audio_tango?: string;
+  audio_reibun?: string;
 };
 
 export type ProgressRow = {
@@ -48,8 +48,8 @@ export type ProgressRow = {
   wrong_count: number;
 };
 
-export const useDeckStudy = (userId: string, deckId: string) => {
-  const [words, setWords] = useState<WordRow[]>([]);
+export const useDeckStudy = (userId: string, deckId: string, partIndex: number = -1) => {
+  const [allWords, setAllWords] = useState<WordRow[]>([]);
   const [progressMap, setProgressMap] = useState<Record<string, ProgressRow>>({});
   const [loading, setLoading] = useState(true);
   const [globalCount, setGlobalCount] = useState(0);
@@ -59,7 +59,7 @@ export const useDeckStudy = (userId: string, deckId: string) => {
     const fetchData = async () => {
       setLoading(true);
 
-      // 1. 単語リストの準備
+      // 1. デッキ全単語の取得
       if (deckId === 'toshin1800' || deckId === 'default') {
         const mapped = toshinData.map(w => ({
           id: String(w.id), word: w.word, meaning: w.quiz.answer,
@@ -67,7 +67,7 @@ export const useDeckStudy = (userId: string, deckId: string) => {
           audio_tango: w.audio.tango || undefined,
           audio_reibun: w.audio.reibun || undefined,
         }));
-        setWords(mapped);
+        setAllWords(mapped);
 
       } else if (deckId === 'target1900') {
         const mapped = targetData.map(w => {
@@ -75,18 +75,16 @@ export const useDeckStudy = (userId: string, deckId: string) => {
           return {
             id: `target_${w.id}`, word: w.word, meaning: w.quiz.answer,
             example_en: w.example.en, example_ja: w.example.ja, choices: w.quiz.distractors,
-            audio_tango: `TG1900_${numStr}e.m4a`,  // e = 単語
-            audio_reibun: `TG1900_${numStr}s.m4a`, // s = 例文（sentence）
+            audio_tango: `TG1900_${numStr}e.m4a`,
+            audio_reibun: `TG1900_${numStr}s.m4a`,
           };
         });
-        setWords(mapped);
+        setAllWords(mapped);
 
       } else if (deckId === 'weak') {
-        // 🌟🔥 苦手特訓モード（仮想デッキ）
         const { data: pwData } = await supabase.from('progress').select('word_id').eq('user_id', userId).gt('wrong_count', 0);
         const weakIds = pwData ? pwData.map(p => p.word_id) : [];
 
-        // 公式データからの抽出
         const toshinMapped = toshinData.map(w => ({
           id: String(w.id), word: w.word, meaning: w.quiz.answer,
           example_en: w.example.en, example_ja: w.example.ja, choices: w.quiz.distractors,
@@ -99,14 +97,13 @@ export const useDeckStudy = (userId: string, deckId: string) => {
           return {
             id: `target_${w.id}`, word: w.word, meaning: w.quiz.answer,
             example_en: w.example.en, example_ja: w.example.ja, choices: w.quiz.distractors,
-            audio_tango: `TG1900_${numStr}e.m4a`,  // e = 単語
-            audio_reibun: `TG1900_${numStr}s.m4a`, // s = 例文（sentence）
+            audio_tango: `TG1900_${numStr}e.m4a`,
+            audio_reibun: `TG1900_${numStr}s.m4a`,
           };
         });
 
         const mappedDefault = [...toshinMapped, ...targetMapped].filter(w => weakIds.includes(w.id));
 
-        // 自作データからの抽出（UUID形式のIDを持つもの）
         const customIds = weakIds.filter(id => id.length > 10);
         let customWords: WordRow[] = [];
         if (customIds.length > 0) {
@@ -114,15 +111,14 @@ export const useDeckStudy = (userId: string, deckId: string) => {
           if (cwData) customWords = cwData as WordRow[];
         }
         
-        setWords([...mappedDefault, ...customWords]);
+        setAllWords([...mappedDefault, ...customWords]);
 
       } else {
-        // 自作セットの場合
         const { data: wData } = await supabase.from('words').select('*').eq('deck_id', deckId);
-        if (wData) setWords(wData as WordRow[]);
+        if (wData) setAllWords(wData as WordRow[]);
       }
 
-      // 2. 学習進捗の取得（公式・自作共通）
+      // 2. 進捗の取得
       const { data: pData } = await supabase.from('progress').select('*').eq('user_id', userId);
       if (pData) {
         const pMap: Record<string, ProgressRow> = {};
@@ -136,12 +132,24 @@ export const useDeckStudy = (userId: string, deckId: string) => {
     fetchData();
   }, [userId, deckId]);
 
+  // 100語分割フィルタリングを適用した「今回の学習対象単語」
+  const words = useMemo(() => {
+    if (partIndex === -1 || deckId === 'weak') {
+      return allWords;
+    }
+    const start = partIndex * 100;
+    const end = start + 100;
+    return allWords.slice(start, end);
+  }, [allWords, partIndex, deckId]);
+
   const resetSession = useCallback(() => setSessionUsedIds(new Set()), []);
 
   const getNextWord = useCallback((): WordRow | null => {
     if (words.length === 0) return null;
     const available = words.filter(w => !sessionUsedIds.has(w.id));
-    if (available.length > 0) return available[Math.floor(Math.random() * available.length)];
+    if (available.length > 0) {
+      return available[Math.floor(Math.random() * available.length)];
+    }
     return null;
   }, [words, sessionUsedIds]);
 
@@ -154,19 +162,18 @@ export const useDeckStudy = (userId: string, deckId: string) => {
     const answer = word.meaning;
     let distractors = word.choices || [];
     
-    // 足りない場合は他の単語の意味を借りてくる
     if (distractors.length < numChoices - 1) {
-      const others = words.filter(w => w.id !== word.id).map(w => w.meaning).filter(Boolean);
+      // 選択肢が足りない場合は同パートまたは全単語から補填する
+      const pool = words.length > numChoices ? words : allWords;
+      const others = pool.filter(w => w.id !== word.id).map(w => w.meaning).filter(Boolean);
       others.sort(() => Math.random() - 0.5);
       distractors = [...new Set([...distractors, ...others])];
     }
     
-    // 💡 確実に指定した数 (numChoices - 1) に切り詰める！
     distractors = distractors.slice(0, numChoices - 1);
-    
     const choices = [answer, ...distractors].sort(() => Math.random() - 0.5);
     return { word, choices };
-  }, [getNextWord, words]);
+  }, [getNextWord, words, allWords]);
 
   const handleAnswer = useCallback(async (wordId: string, result: 'correct' | 'wrong' | 'skip') => {
     const current = progressMap[wordId] || { stage: 0, correct_count: 0, wrong_count: 0, next_show_at: 0 };
@@ -197,5 +204,8 @@ export const useDeckStudy = (userId: string, deckId: string) => {
     return { totalWords, learnedCount, learningCount, unlearnedCount, globalCount, weakWords: [] };
   }, [words, progressMap, globalCount]);
 
-  return { words, stats, loading, generateNextQuestion, handleAnswer, resetSession };
+  // 全体の単語数情報（パート分割用ボタンの算出などに使用）
+  const totalAllWordsCount = allWords.length;
+
+  return { words, totalAllWordsCount, stats, loading, generateNextQuestion, handleAnswer, resetSession };
 };
