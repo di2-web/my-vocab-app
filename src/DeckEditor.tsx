@@ -103,7 +103,7 @@ export default function DeckEditor({ deck, onBack }: Props) {
     reader.readAsText(file);
   };
 
-  // 🌟 3. AIマジック（自動生成）ロジック
+  // 3. AI自動生成
   const handleAIGenerate = async () => {
     if (!aiText.trim() && !aiImageFile) {
       alert('英語の長文を入力するか、画像を選択してください！');
@@ -122,7 +122,6 @@ export default function DeckEditor({ deck, onBack }: Props) {
         imageBase64 = await base64Promise;
       }
 
-      // Supabase Edge Functions を呼び出す
       const { data, error } = await supabase.functions.invoke('generate-cards', {
         body: { text: aiText, imageBase64 }
       });
@@ -131,7 +130,7 @@ export default function DeckEditor({ deck, onBack }: Props) {
       if (data.error) throw new Error(data.error);
 
       await processAndSaveList(data);
-      alert(`✨ AI生成完了！\n${data.length} 件の単語リストを作成・更新しました！`);
+      alert(`AI生成完了！\n${data.length} 件の単語リストを作成・更新しました！`);
 
       setAiText('');
       setAiImageFile(null);
@@ -143,7 +142,6 @@ export default function DeckEditor({ deck, onBack }: Props) {
     }
   };
 
-  // （共通）取得したリストを差分更新でデータベースに保存する関数
   const processAndSaveList = async (list: Array<{ word: string; meaning?: string; example_en?: string; example_ja?: string; choices?: string[] }>) => {
     if (!Array.isArray(list)) throw new Error('データ形式が間違っています');
     const updates: Array<Partial<WordRow> & { id: string }> = [];
@@ -164,27 +162,28 @@ export default function DeckEditor({ deck, onBack }: Props) {
     fetchWords();
   };
 
-
   return (
-    <div style={{ padding: '20px', backgroundColor: 'white', borderRadius: '10px' }}>
-      <button onClick={onBack} style={{ marginBottom: '20px', padding: '10px', cursor: 'pointer' }}>
-        ← セット一覧に戻る
-      </button>
+    <div className="container" style={{ padding: '10px 0' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '20px' }}>
+        <button className="btn btn-secondary" onClick={onBack}>戻る</button>
+      </div>
 
-      <h2 style={{ borderBottom: '2px solid #2196f3', paddingBottom: '10px' }}>✏️ 「{deck.name}」を編集</h2>
+      <h1 style={{ fontSize: '28px', marginBottom: '25px', color: 'var(--text-h)' }}>「{deck.name}」の編集</h1>
 
-      {/* 🌟 魔法のAI生成セクション */}
-      <div style={{ backgroundColor: '#fff8e1', padding: '20px', borderRadius: '10px', marginBottom: '30px', border: '1px solid #ffc107' }}>
-        <h3 style={{ margin: '0 0 15px 0', color: '#ff8f00' }}>✨ AIで単語帳を自動生成！</h3>
-        <p style={{ fontSize: '14px', marginBottom: '15px' }}>英語の長文を貼り付けるか、教科書の写真をアップロードすると、AIが重要な単語を抽出して単語帳を作ります。</p>
+      {/* 🌟 AI自動生成セクション */}
+      <div style={{ backgroundColor: 'var(--code-bg)', padding: '24px', borderRadius: '8px', marginBottom: '24px', border: '1px solid var(--border)', textAlign: 'left' }}>
+        <h3 style={{ margin: '0 0 10px 0', fontSize: '18px', color: 'var(--text-h)', fontWeight: 'bold' }}>AIで自動生成</h3>
+        <p style={{ fontSize: '14px', marginBottom: '16px', color: 'var(--text)', lineHeight: '1.5' }}>
+          英語の長文を貼り付けるか、テキスト画像のファイルをアップロードすると、AIが重要な単語を自動で抽出してカードを作成します。
+        </p>
 
         <textarea
-          placeholder="ここに英語の文章を貼り付ける（例：The quick brown fox jumps over the lazy dog...）"
+          placeholder="英語の文章をここにペーストしてください..."
           value={aiText} onChange={e => setAiText(e.target.value)}
-          style={{ width: '100%', height: '80px', padding: '10px', marginBottom: '10px', boxSizing: 'border-box' }}
+          style={{ width: '100%', height: '100px', padding: '12px', marginBottom: '16px', boxSizing: 'border-box' }}
         />
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '15px' }}>
+        <div style={{ marginBottom: '16px' }}>
           <input
             type="file" accept="image/*"
             onChange={e => setAiImageFile(e.target.files?.[0] || null)}
@@ -193,49 +192,74 @@ export default function DeckEditor({ deck, onBack }: Props) {
 
         <button
           onClick={handleAIGenerate} disabled={isAIGenerating}
-          style={{ width: '100%', padding: '15px', backgroundColor: isAIGenerating ? '#ccc' : '#ff9800', color: 'white', border: 'none', borderRadius: '5px', fontSize: '16px', fontWeight: 'bold', cursor: isAIGenerating ? 'not-allowed' : 'pointer' }}
+          className="btn btn-primary"
+          style={{ width: '100%', padding: '12px', fontSize: '15px' }}
         >
-          {isAIGenerating ? '⏳ AIが一生懸命作っています... (10秒ほどお待ち下さい)' : '✨ AIにおまかせ生成！'}
+          {isAIGenerating ? 'AIが生成中です (10秒ほどお待ち下さい)...' : 'AIに自動生成をまかせる'}
         </button>
       </div>
 
-      <hr style={{ border: '1px dashed #ccc', margin: '30px 0' }} />
-
       <div style={{ display: 'flex', gap: '20px', flexDirection: 'column' }}>
         {/* 手動入力フォーム */}
-        <form onSubmit={handleSave} style={{ backgroundColor: '#f5f5f5', padding: '15px', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <h4 style={{ margin: 0 }}>{editingId ? '単語を編集' : '手動で1つ追加'}</h4>
-          <input placeholder="英単語 (例: apple)" value={wordText} onChange={e => setWordText(e.target.value)} required style={{ padding: '8px' }} />
-          <input placeholder="意味 (例: りんご)" value={meaning} onChange={e => setMeaning(e.target.value)} required style={{ padding: '8px' }} />
-          <textarea placeholder="英語の例文" value={exampleEn} onChange={e => setExampleEn(e.target.value)} style={{ padding: '8px' }} />
-          <textarea placeholder="例文の日本語訳" value={exampleJa} onChange={e => setExampleJa(e.target.value)} style={{ padding: '8px' }} />
-          <input placeholder="不正解のダミー (カンマ区切り)" value={choicesStr} onChange={e => setChoicesStr(e.target.value)} style={{ padding: '8px' }} />
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button type="submit" style={{ padding: '10px', flexGrow: 1, backgroundColor: '#2196f3', color: 'white', border: 'none', cursor: 'pointer' }}>{editingId ? '更新する' : '追加する'}</button>
-            {editingId && <button type="button" onClick={resetForm} style={{ padding: '10px', backgroundColor: '#9e9e9e', color: 'white', border: 'none', cursor: 'pointer' }}>キャンセル</button>}
+        <form onSubmit={handleSave} style={{ backgroundColor: 'var(--code-bg)', padding: '24px', borderRadius: '8px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '12px', textAlign: 'left' }}>
+          <h3 style={{ margin: '0 0 4px 0', fontSize: '18px', color: 'var(--text-h)', fontWeight: 'bold' }}>
+            {editingId ? '単語を編集' : '単語を手動で追加'}
+          </h3>
+          <input placeholder="英単語 (必須 例: apple)" value={wordText} onChange={e => setWordText(e.target.value)} required />
+          <input placeholder="意味 (必須 例: りんご)" value={meaning} onChange={e => setMeaning(e.target.value)} required />
+          <textarea placeholder="英語の例文 (任意)" value={exampleEn} onChange={e => setExampleEn(e.target.value)} style={{ height: '60px' }} />
+          <textarea placeholder="例文の日本語訳 (任意)" value={exampleJa} onChange={e => setExampleJa(e.target.value)} style={{ height: '60px' }} />
+          <input placeholder="不正解のダミー選択肢 (任意、カンマ区切り)" value={choicesStr} onChange={e => setChoicesStr(e.target.value)} />
+
+          <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+            <button type="submit" className="btn btn-primary" style={{ flexGrow: 1 }}>
+              {editingId ? '更新する' : '追加する'}
+            </button>
+            {editingId && (
+              <button type="button" className="btn btn-secondary" onClick={resetForm}>
+                キャンセル
+              </button>
+            )}
           </div>
         </form>
 
         {/* JSONインポートセクション */}
-        <div style={{ backgroundColor: '#e8f5e9', padding: '15px', borderRadius: '10px' }}>
-          <h4 style={{ margin: '0 0 10px 0' }}>📁 既存のJSONファイルから追加</h4>
+        <div style={{ backgroundColor: 'var(--code-bg)', padding: '24px', borderRadius: '8px', border: '1px solid var(--border)', textAlign: 'left' }}>
+          <h3 style={{ margin: '0 0 10px 0', fontSize: '18px', color: 'var(--text-h)', fontWeight: 'bold' }}>JSONファイルからインポート</h3>
+          <p style={{ fontSize: '14px', marginBottom: '16px', color: 'var(--text)', lineHeight: '1.5' }}>
+            作成済みのバックアップファイル（.json）を読み込んで追加します。
+          </p>
           <input type="file" accept=".json" ref={fileInputRef} onChange={handleImportJSON} />
         </div>
       </div>
 
       {/* 登録済み単語リスト */}
-      <h3 style={{ marginTop: '40px' }}>登録済みの単語 ({words.length}件)</h3>
-      {loading ? <p>読み込み中...</p> : (
+      <h3 style={{ marginTop: '40px', marginBottom: '16px', textAlign: 'left', color: 'var(--text-h)', fontSize: '20px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+        登録済みの単語 ({words.length}件)
+      </h3>
+
+      {loading ? (
+        <p style={{ color: 'var(--text)' }}>読み込み中...</p>
+      ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {words.map(w => (
-            <div key={w.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', border: '1px solid #ddd', borderRadius: '5px', backgroundColor: '#fafafa' }}>
+            <div key={w.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', border: '1px solid var(--border)', borderRadius: '8px', backgroundColor: 'var(--code-bg)', textAlign: 'left' }}>
               <div>
-                <strong style={{ fontSize: '18px', color: '#1976d2' }}>{w.word}</strong> <span style={{ color: '#555' }}>- {w.meaning}</span>
-                {w.example_en && <div style={{ fontSize: '12px', marginTop: '5px', color: '#666' }}>例文: {w.example_en}</div>}
+                <strong style={{ fontSize: '16px', color: 'var(--accent)' }}>{w.word}</strong>
+                <span style={{ color: 'var(--text-h)', marginLeft: '8px' }}>- {w.meaning}</span>
+                {w.example_en && (
+                  <div style={{ fontSize: '12px', marginTop: '6px', color: 'var(--text)' }}>
+                    例文: {w.example_en}
+                  </div>
+                )}
               </div>
-              <div>
-                <button onClick={() => handleEditClick(w)} style={{ marginRight: '10px', cursor: 'pointer', padding: '5px 10px' }}>✏️</button>
-                <button onClick={() => handleDelete(w.id)} style={{ color: 'red', cursor: 'pointer', padding: '5px 10px' }}>🗑️</button>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => handleEditClick(w)}>
+                  編集
+                </button>
+                <button className="btn btn-danger" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => handleDelete(w.id)}>
+                  削除
+                </button>
               </div>
             </div>
           ))}

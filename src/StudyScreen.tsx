@@ -51,7 +51,12 @@ export default function StudyScreen({ user, deck, onBack }: Props) {
     setScreen('QUIZ');
   };
 
+  // 💡 安全対策: goNextが呼ばれたら、待機中の自動遷移タイマーを完全に消去する
   const goNext = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
     setSessionCount(prev => prev + 1);
     loadQuestion();
   }, [loadQuestion]);
@@ -71,17 +76,21 @@ export default function StudyScreen({ user, deck, onBack }: Props) {
     handleAnswer(word.id, result);
 
     if (result === 'correct') {
+      // 正解時は0.8秒後に自動で次へ（この間にEnterを押してもgoNextで重複発火しないようガード）
       timerRef.current = window.setTimeout(goNext, 800);
     }
   }, [currentQuestion, answeredResult, handleAnswer, goNext]);
 
+  // 💡 キーボード操作の監視（画面サイズでの制限を撤廃）
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (screen !== 'QUIZ' || !currentQuestion || isMobile) return;
+      if (screen !== 'QUIZ' || !currentQuestion) return;
 
       if (!answeredResult) {
+        // 未解答のとき: 1〜8キーで選択、9キーで「わからない」
         if (e.key >= '1' && e.key <= '8') {
           const idx = parseInt(e.key, 10) - 1;
+          // 選択肢の数（スマホは4、PCは8）を超えていないキーのみ反応させる
           if (idx < currentQuestion.choices.length) {
             onAnswerClick(currentQuestion.choices[idx]);
           }
@@ -89,6 +98,7 @@ export default function StudyScreen({ user, deck, onBack }: Props) {
           onAnswerClick(null);
         }
       } else {
+        // 回答済みのとき: Enterキーで次の問題に進む（自動遷移待ちの correct 時でもEnterスキップ可能）
         if (e.key === 'Enter') {
           goNext();
         }
@@ -96,7 +106,7 @@ export default function StudyScreen({ user, deck, onBack }: Props) {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [screen, currentQuestion, answeredResult, isMobile, onAnswerClick, goNext]);
+  }, [screen, currentQuestion, answeredResult, onAnswerClick, goNext]);
 
   // パート分けのセレクトボックスの選択肢を生成
   const partCount = Math.ceil(totalAllWordsCount / 100);
@@ -122,7 +132,6 @@ export default function StudyScreen({ user, deck, onBack }: Props) {
     );
   }
 
-  // 💡 allWords.length から totalAllWordsCount に修正
   if (totalAllWordsCount === 0) return (
     <div style={{ textAlign: 'center', marginTop: '50px', padding: '20px' }}>
       <h2 style={{ color: 'var(--text-h)' }}>単語が登録されていません</h2>
@@ -218,7 +227,7 @@ export default function StudyScreen({ user, deck, onBack }: Props) {
                   transition: 'all 0.2s'
                 }}
               >
-                {!isMobile && <span style={{ marginRight: '10px', fontSize: '12px', opacity: 0.5, backgroundColor: 'var(--code-bg)', padding: '2px 6px', borderRadius: '4px' }}>{i + 1}</span>}
+                <span style={{ marginRight: '10px', fontSize: '12px', opacity: 0.5, backgroundColor: 'var(--code-bg)', padding: '2px 6px', borderRadius: '4px' }}>{i + 1}</span>
                 {choice}
               </button>
             ))}
@@ -231,7 +240,7 @@ export default function StudyScreen({ user, deck, onBack }: Props) {
                 display: 'flex', alignItems: 'center', justifyContent: 'flex-start'
               }}
             >
-              {!isMobile && <span style={{ marginRight: '10px', fontSize: '12px', opacity: 0.5, backgroundColor: 'var(--bg)', padding: '2px 6px', borderRadius: '4px' }}>9</span>}
+              <span style={{ marginRight: '10px', fontSize: '12px', opacity: 0.5, backgroundColor: 'var(--bg)', padding: '2px 6px', borderRadius: '4px' }}>9</span>
               わからない
             </button>
           </div>
@@ -254,7 +263,7 @@ export default function StudyScreen({ user, deck, onBack }: Props) {
               )}
 
               <button className="btn btn-primary" onClick={goNext} style={{ width: '100%', padding: '12px', marginTop: '20px' }}>
-                次の問題へ {(!isMobile && '(Enter)')}
+                次の問題へ (Enter)
               </button>
             </div>
           )}
