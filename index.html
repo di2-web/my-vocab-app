@@ -1,13 +1,31 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>my-vocab-app</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image" href="/icons/icon-192.png" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Vocab App</title>
+
+  <!-- 💡 PWAマニフェストファイルの読み込み -->
+  <link rel="manifest" href="/manifest.json" />
+  <!-- 💡 アドレスバー等のテーマカラー（紫に合わせます） -->
+  <meta name="theme-color" content="#aa3bff" />
+
+  <!-- 💡 iOS Safari 向けの特別な設定 -->
+  <!-- ホーム画面から起動したときにURLバーなどを隠し、全画面（スタンドアロン）で起動する -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <!-- ホーム画面でのアプリアイコン下の名前を設定 -->
+  <meta name="apple-mobile-web-app-title" content="Vocab" />
+  <!-- ステータスバー（時計や電波のある上部バー）をコンテンツに重ねて綺麗に見せる（半透明黒） -->
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <!-- ホーム画面用アイコン（iPhone向け） -->
+  <link rel="apple-touch-icon" href="/icons/apple-icon-180.png" />
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
 </html>

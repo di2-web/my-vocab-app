@@ -22,7 +22,7 @@ export default function DeckManager({ userId, onSelectStudy, onSelectEdit, onOpe
   if (loading) return <div style={{ textAlign: 'center', marginTop: '50px', color: 'var(--text)' }}>読み込み中...</div>;
 
   return (
-    <div style={{ maxWidth: '600px', margin: '0 auto', padding: '20px' }}>
+    <div style={{ maxWidth: '900px', margin: '0 auto', padding: '20px' }}>
 
       <button
         onClick={onOpenDashboard}
@@ -47,18 +47,28 @@ export default function DeckManager({ userId, onSelectStudy, onSelectEdit, onOpe
           <div
             key={deck.id}
             style={{
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px',
-              backgroundColor: 'var(--code-bg)', borderRadius: '8px', border: '1px solid var(--border)',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '16px',
+              backgroundColor: 'var(--code-bg)',
+              borderRadius: '8px',
+              border: '1px solid var(--border)',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+              /* 💡 スマホ等で横幅が狭い場合、ボタン群を下に回り込ませてはみ出しを防止します */
+              flexWrap: 'wrap',
+              gap: '12px'
             }}
           >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {/* テキストエリア */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'left', minWidth: '150px', flex: '1 1 auto' }}>
               <span style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--text-h)' }}>{deck.name}</span>
               {deck.is_default && (
                 <span style={{ fontSize: '11px', color: 'var(--text)', opacity: 0.8 }}>公式セット</span>
               )}
             </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
+            {/* ボタン群 */}
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               {!deck.is_default ? (
                 <>
                   <button
@@ -86,18 +96,18 @@ export default function DeckManager({ userId, onSelectStudy, onSelectEdit, onOpe
         ))}
       </div>
 
-      <div style={{ padding: '24px', backgroundColor: 'var(--code-bg)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+      <div style={{ padding: '24px', backgroundColor: 'var(--code-bg)', borderRadius: '8px', border: '1px solid var(--border)', textAlign: 'left' }}>
         <h3 style={{ margin: '0 0 12px 0', fontSize: '16px', color: 'var(--text-h)' }}>新規セットの作成</h3>
-        <form onSubmit={handleCreate} style={{ display: 'flex', gap: '10px' }}>
+        <form onSubmit={handleCreate} style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           <input
             type="text" value={newDeckName} onChange={e => setNewDeckName(e.target.value)}
             placeholder="セットの名前を入力" required
             style={{
               flexGrow: 1, padding: '12px', borderRadius: '6px', border: '1px solid var(--border)',
-              backgroundColor: 'var(--bg)', color: 'var(--text-h)', fontSize: '14px'
+              backgroundColor: 'var(--bg)', color: 'var(--text-h)', fontSize: '14px', minWidth: '180px'
             }}
           />
-          <button type="submit" style={{ padding: '12px 24px', backgroundColor: 'var(--text-h)', color: 'var(--bg)', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold' }}>
+          <button type="submit" style={{ padding: '12px 24px', backgroundColor: 'var(--text-h)', color: 'var(--bg)', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold', width: '100%', maxWidth: '120px' }}>
             作成
           </button>
         </form>

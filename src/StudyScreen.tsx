@@ -51,7 +51,6 @@ export default function StudyScreen({ user, deck, onBack }: Props) {
     setScreen('QUIZ');
   };
 
-  // 💡 安全対策: goNextが呼ばれたら、待機中の自動遷移タイマーを完全に消去する
   const goNext = useCallback(() => {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
@@ -76,21 +75,19 @@ export default function StudyScreen({ user, deck, onBack }: Props) {
     handleAnswer(word.id, result);
 
     if (result === 'correct') {
-      // 正解時は0.8秒後に自動で次へ（この間にEnterを押してもgoNextで重複発火しないようガード）
-      timerRef.current = window.setTimeout(goNext, 800);
+      if (isMobile) {
+        timerRef.current = window.setTimeout(goNext, 2000);
+      }
     }
-  }, [currentQuestion, answeredResult, handleAnswer, goNext]);
+  }, [currentQuestion, answeredResult, handleAnswer, goNext, isMobile]);
 
-  // 💡 キーボード操作の監視（画面サイズでの制限を撤廃）
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (screen !== 'QUIZ' || !currentQuestion) return;
 
       if (!answeredResult) {
-        // 未解答のとき: 1〜8キーで選択、9キーで「わからない」
         if (e.key >= '1' && e.key <= '8') {
           const idx = parseInt(e.key, 10) - 1;
-          // 選択肢の数（スマホは4、PCは8）を超えていないキーのみ反応させる
           if (idx < currentQuestion.choices.length) {
             onAnswerClick(currentQuestion.choices[idx]);
           }
@@ -98,7 +95,6 @@ export default function StudyScreen({ user, deck, onBack }: Props) {
           onAnswerClick(null);
         }
       } else {
-        // 回答済みのとき: Enterキーで次の問題に進む（自動遷移待ちの correct 時でもEnterスキップ可能）
         if (e.key === 'Enter') {
           goNext();
         }
@@ -108,7 +104,6 @@ export default function StudyScreen({ user, deck, onBack }: Props) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [screen, currentQuestion, answeredResult, onAnswerClick, goNext]);
 
-  // パート分けのセレクトボックスの選択肢を生成
   const partCount = Math.ceil(totalAllWordsCount / 100);
   const partOptions = [];
   if (deck.id !== 'weak' && partCount > 1) {
@@ -141,7 +136,7 @@ export default function StudyScreen({ user, deck, onBack }: Props) {
   );
 
   return (
-    <div className="container">
+    <div className="container" style={{ maxWidth: '900px' }}>
       {screen === 'HOME' && (
         <div style={{ marginTop: '10px' }}>
           <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '20px' }}>
@@ -150,7 +145,6 @@ export default function StudyScreen({ user, deck, onBack }: Props) {
 
           <h1 style={{ fontSize: '32px', marginBottom: '20px', color: 'var(--text-h)' }}>{deck.name}</h1>
 
-          {/* パート分割選択 */}
           {partOptions.length > 0 && (
             <div style={{ marginBottom: '20px', backgroundColor: 'var(--code-bg)', padding: '15px', borderRadius: '8px', border: '1px solid var(--border)' }}>
               <label htmlFor="part-select" style={{ display: 'block', fontSize: '14px', marginBottom: '8px', color: 'var(--text-h)', fontWeight: 'bold' }}>学習範囲を選択</label>
@@ -172,13 +166,17 @@ export default function StudyScreen({ user, deck, onBack }: Props) {
           )}
 
           <div style={{ backgroundColor: 'var(--code-bg)', padding: '20px', borderRadius: '8px', border: '1px solid var(--border)', marginBottom: '30px' }}>
-            <h3 style={{ margin: '0 0 15px 0', fontSize: '18px', color: 'var(--text-h)' }}>学習状況</h3>
-            <p style={{ color: 'var(--text)' }}>対象の単語数: <strong style={{ color: 'var(--text-h)' }}>{stats.totalWords} 語</strong></p>
-            <div style={{ display: 'flex', height: '12px', backgroundColor: 'var(--border)', borderRadius: '6px', overflow: 'hidden', margin: '15px 0' }}>
-              <div style={{ width: `${(stats.learnedCount / Math.max(stats.totalWords, 1)) * 100}%`, backgroundColor: 'var(--accent)' }} />
+            <h3 style={{ margin: '0 0 15px 0', fontSize: '18px', color: 'var(--text-h)', textAlign: 'left' }}>学習状況</h3>
+            <p style={{ color: 'var(--text)', textAlign: 'left' }}>対象の単語数: <strong style={{ color: 'var(--text-h)' }}>{stats.totalWords} 語</strong></p>
+
+            <div style={{ display: 'flex', height: '14px', backgroundColor: 'var(--border)', borderRadius: '7px', overflow: 'hidden', margin: '15px 0' }}>
+              <div style={{ width: `${(stats.learnedCount / Math.max(stats.totalWords, 1)) * 100}%`, backgroundColor: 'var(--accent)', transition: 'width 0.3s' }} />
+              <div style={{ width: `${(stats.learningCount / Math.max(stats.totalWords, 1)) * 100}%`, backgroundColor: 'var(--accent-border)', transition: 'width 0.3s' }} />
             </div>
+
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: 'var(--text)' }}>
               <span>習得済: <strong style={{ color: 'var(--accent)' }}>{stats.learnedCount}</strong></span>
+              <span>学習中: <strong style={{ color: 'var(--text)', textDecoration: 'underline', textDecorationColor: 'var(--accent-border)' }}>{stats.learningCount}</strong></span>
               <span>未学習: <strong style={{ color: 'var(--text-h)' }}>{stats.unlearnedCount}</strong></span>
             </div>
           </div>
@@ -208,9 +206,10 @@ export default function StudyScreen({ user, deck, onBack }: Props) {
             </button>
           </div>
 
+          {/* グリッドの構築: スマホ時は縦1列。PCかつ8択のときは「3×3」に配置 */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)',
+            gridTemplateColumns: isMobile ? '1fr' : (currentQuestion.choices.length === 8 ? 'repeat(3, 1fr)' : 'repeat(2, 1fr)'),
             gap: '12px',
             marginBottom: '20px'
           }}>
@@ -224,7 +223,11 @@ export default function StudyScreen({ user, deck, onBack }: Props) {
                   borderColor: answeredResult ? (choice === currentQuestion.word.meaning ? 'var(--accent-border)' : 'var(--border)') : 'var(--border)',
                   color: 'var(--text-h)',
                   boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                  transition: 'all 0.2s'
+                  transition: 'all 0.2s',
+                  /* 💡 日本語の意味が長い場合にボタンからはみ出さないよう、折り返しを保証します */
+                  wordBreak: 'break-word',
+                  whiteSpace: 'normal',
+                  textAlign: 'left'
                 }}
               >
                 <span style={{ marginRight: '10px', fontSize: '12px', opacity: 0.5, backgroundColor: 'var(--code-bg)', padding: '2px 6px', borderRadius: '4px' }}>{i + 1}</span>
@@ -245,25 +248,44 @@ export default function StudyScreen({ user, deck, onBack }: Props) {
             </button>
           </div>
 
-          {answeredResult && answeredResult !== 'correct' && (
+          {/* 正解時も含め、解答後は常に例文・解説と「次の問題へ」ボタンを表示 */}
+          {answeredResult && (
             <div style={{ marginTop: '20px', padding: '20px', backgroundColor: 'var(--code-bg)', borderRadius: '8px', border: '1px solid var(--border)', textAlign: 'left' }}>
-              <h3 style={{ color: 'var(--text-h)', fontSize: '18px', margin: '0 0 10px 0' }}>
-                {answeredResult === 'skip' ? '答え' : '不正解'}
+              <h3 style={{
+                color: answeredResult === 'correct' ? 'var(--accent)' : '#e53935',
+                fontSize: '18px',
+                margin: '0 0 10px 0'
+              }}>
+                {answeredResult === 'correct' && '正解！'}
+                {answeredResult === 'wrong' && '不正解...'}
+                {answeredResult === 'skip' && '答え'}
               </h3>
-              <p style={{ fontSize: '18px', marginBottom: '15px' }}><strong style={{ color: 'var(--text-h)' }}>正解:</strong> {currentQuestion.word.meaning}</p>
+              <p style={{ fontSize: '18px', marginBottom: '15px' }}>
+                <strong style={{ color: 'var(--text-h)' }}>意味:</strong> {currentQuestion.word.meaning}
+              </p>
 
               {currentQuestion.word.example_en && (
                 <div style={{ borderTop: '1px solid var(--border)', paddingTop: '15px', marginTop: '15px' }}>
-                  <p style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '0 0 5px 0', color: 'var(--text-h)' }}>
-                    <strong>例文:</strong> {currentQuestion.word.example_en}
+                  {/* 💡 ヘッダー部分（「例文」と「再生」）だけを横一列にまとめます */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '8px' }}>
+                    <strong style={{ color: 'var(--text-h)' }}>例文:</strong>
                     <button className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '12px' }} onClick={() => playAudio(currentQuestion.word.example_en, currentQuestion.word.audio_reibun)}>再生</button>
+                  </div>
+                  {/* 💡 英文と和訳は独立させ、画面幅に応じて完璧に自動改行させます（これで絶対にはみ出しません） */}
+                  <p style={{ color: 'var(--text-h)', wordBreak: 'break-word', fontSize: '16px', margin: '0 0 8px 0', lineHeight: '1.4' }}>
+                    {currentQuestion.word.example_en}
                   </p>
-                  {currentQuestion.word.example_ja && <p style={{ fontSize: '14px', color: 'var(--text)', margin: 0 }}>{currentQuestion.word.example_ja}</p>}
+                  {currentQuestion.word.example_ja && (
+                    <p style={{ fontSize: '14px', color: 'var(--text)', margin: 0, wordBreak: 'break-word', lineHeight: '1.4' }}>
+                      {currentQuestion.word.example_ja}
+                    </p>
+                  )}
                 </div>
               )}
 
+              {/* PCまたは、スマホで自動遷移を待たずに即時進みたい場合のために常に表示 */}
               <button className="btn btn-primary" onClick={goNext} style={{ width: '100%', padding: '12px', marginTop: '20px' }}>
-                次の問題へ (Enter)
+                次の問題へ {!isMobile && '(Enter)'}
               </button>
             </div>
           )}

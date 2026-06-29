@@ -13,7 +13,6 @@ import type { User } from '@supabase/supabase-js';
 
 // ------ MainApp コンポーネント ------
 function MainApp({ user }: { user: User }) {
-  // 🌟 DASHBOARD を追加
   const [screen, setScreen] = useState<'DECKS' | 'STUDY' | 'EDIT' | 'DASHBOARD'>('DECKS');
   const [selectedDeck, setSelectedDeck] = useState<Deck | null>(null);
 
@@ -28,7 +27,8 @@ function MainApp({ user }: { user: User }) {
   };
 
   return (
-    <div style={{ maxWidth: '600px', width: '100%', margin: '0 auto', padding: '20px', fontFamily: 'sans-serif' }}>
+    /* 💡 maxWidth を 900px に拡張 */
+    <div style={{ maxWidth: '900px', width: '100%', margin: '0 auto', padding: '20px', fontFamily: 'sans-serif' }}>
 
       <div style={{ textAlign: 'right', marginBottom: '10px' }}>
         <button onClick={() => supabase.auth.signOut()} style={{ background: 'none', border: 'none', color: '#757575', cursor: 'pointer', textDecoration: 'underline' }}>ログアウト</button>
@@ -39,7 +39,7 @@ function MainApp({ user }: { user: User }) {
           userId={user.id}
           onSelectStudy={handleSelectStudy}
           onSelectEdit={handleSelectEdit}
-          onOpenDashboard={() => setScreen('DASHBOARD')} // 🌟 これを追加
+          onOpenDashboard={() => setScreen('DASHBOARD')}
         />
       )}
 
@@ -51,7 +51,6 @@ function MainApp({ user }: { user: User }) {
         <DeckEditor deck={selectedDeck} onBack={() => setScreen('DECKS')} />
       )}
 
-      {/* 🌟 ダッシュボード画面の追加 */}
       {screen === 'DASHBOARD' && (
         <Dashboard
           userId={user.id}
@@ -63,31 +62,25 @@ function MainApp({ user }: { user: User }) {
   );
 }
 
-// ------ アプリのエントリポイント（認証・ゲート管理） ------
+// ------ アプリのエントリポイント ------
 export default function App() {
   const { user, authLoading, isVerified, setIsVerified } = useAuth();
 
-  // 1. Auth（ログイン状態）の確認中
   if (authLoading) {
     return <div style={{ textAlign: 'center', marginTop: '50px' }}>認証状態を確認中...</div>;
   }
 
-  // 2. 未ログイン
   if (!user) {
     return <Auth />;
   }
 
-  // 3. Profile（アクセスコード）の確認中
   if (isVerified === 'loading') {
     return <div style={{ textAlign: 'center', marginTop: '50px' }}>ユーザー情報を読み込み中...</div>;
   }
 
-  // 4. アクセスコード未入力（または通信エラー）
   if (isVerified === false) {
-    // 💡 リロードではなく、親の状態を直接更新する
     return <AccessGate onVerified={() => setIsVerified(true)} />;
   }
 
-  // 5. すべてクリア！メインアプリ表示
   return <MainApp user={user} />;
 }

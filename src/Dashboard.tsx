@@ -29,6 +29,13 @@ export default function Dashboard({ userId, onBack, onStartWeakStudy }: Props) {
   const [weakRanking, setWeakRanking] = useState<WeakRankingItem[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   useEffect(() => {
     const fetchAnalytics = async () => {
       setLoading(true);
@@ -75,11 +82,13 @@ export default function Dashboard({ userId, onBack, onStartWeakStudy }: Props) {
         meaning: w.quiz.answer
       }));
 
-      const defaultWordsTarget = (targetDataRaw as WordData[]).map(w => ({
-        id: `target_${w.id}`,
-        word: w.word,
-        meaning: w.quiz.answer
-      }));
+      const defaultWordsTarget = (targetDataRaw as WordData[]).map(w => {
+        return {
+          id: `target_${w.id}`,
+          word: w.word,
+          meaning: w.quiz.answer
+        };
+      });
 
       const defaultWords = [...defaultWordsToshin, ...defaultWordsTarget];
       const defaultWordsFiltered = defaultWords.filter(w => weakIds.includes(w.id));
@@ -105,7 +114,7 @@ export default function Dashboard({ userId, onBack, onStartWeakStudy }: Props) {
   if (loading) return <div style={{ textAlign: 'center', marginTop: '50px', color: 'var(--text)' }}>データ分析中...</div>;
 
   return (
-    <div style={{ padding: '20px', maxWidth: '600px', margin: '0 auto' }}>
+    <div style={{ padding: '20px', maxWidth: '900px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '20px' }}>
         <button className="btn btn-secondary" onClick={onBack}>一覧に戻る</button>
       </div>
@@ -116,35 +125,36 @@ export default function Dashboard({ userId, onBack, onStartWeakStudy }: Props) {
         <p style={{ textAlign: 'center', color: 'var(--text)' }}>学習データがありません。クイズをプレイしてデータを集めましょう。</p>
       ) : (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '30px' }}>
+          {/* 💡 スマホ時は1カラムに並び替え、各カードからはみ出るのを防ぎます */}
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(4, 1fr)', gap: '12px', marginBottom: '30px' }}>
             <div style={{ backgroundColor: 'var(--code-bg)', padding: '16px', borderRadius: '8px', textAlign: 'center', border: '1px solid var(--border)' }}>
               <div style={{ fontSize: '13px', color: 'var(--text)' }}>総解答数</div>
-              <div style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--text-h)' }}>{stats.totalAnswers} <span style={{ fontSize: '14px', fontWeight: 'normal' }}>問</span></div>
+              <div style={{ fontSize: '24px', fontWeight: 'bold', color: 'var(--text-h)' }}>{stats.totalAnswers} <span style={{ fontSize: '13px', fontWeight: 'normal' }}>問</span></div>
             </div>
             <div style={{ backgroundColor: 'var(--code-bg)', padding: '16px', borderRadius: '8px', textAlign: 'center', border: '1px solid var(--border)' }}>
               <div style={{ fontSize: '13px', color: 'var(--text)' }}>全体正答率</div>
-              <div style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--text-h)' }}>{stats.accuracy} <span style={{ fontSize: '14px', fontWeight: 'normal' }}>%</span></div>
+              <div style={{ fontSize: '24px', fontWeight: 'bold', color: 'var(--text-h)' }}>{stats.accuracy} <span style={{ fontSize: '13px', fontWeight: 'normal' }}>%</span></div>
             </div>
             <div style={{ backgroundColor: 'var(--code-bg)', padding: '16px', borderRadius: '8px', textAlign: 'center', border: '1px solid var(--border)' }}>
               <div style={{ fontSize: '13px', color: 'var(--text)' }}>習得済み単語</div>
-              <div style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--text-h)' }}>{stats.learned} <span style={{ fontSize: '14px', fontWeight: 'normal' }}>語</span></div>
+              <div style={{ fontSize: '24px', fontWeight: 'bold', color: 'var(--text-h)' }}>{stats.learned} <span style={{ fontSize: '13px', fontWeight: 'normal' }}>語</span></div>
             </div>
             <div style={{ backgroundColor: 'var(--code-bg)', padding: '16px', borderRadius: '8px', textAlign: 'center', border: '1px solid var(--border)' }}>
               <div style={{ fontSize: '13px', color: 'var(--text)' }}>学習中の単語</div>
-              <div style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--text-h)' }}>{stats.learning} <span style={{ fontSize: '14px', fontWeight: 'normal' }}>語</span></div>
+              <div style={{ fontSize: '24px', fontWeight: 'bold', color: 'var(--text-h)' }}>{stats.learning} <span style={{ fontSize: '13px', fontWeight: 'normal' }}>語</span></div>
             </div>
           </div>
 
           <div style={{ backgroundColor: 'var(--code-bg)', padding: '20px', borderRadius: '8px', marginBottom: '30px', border: '1px solid var(--border)' }}>
-            <h3 style={{ margin: '0 0 15px 0', fontSize: '16px', color: 'var(--text-h)' }}>苦手な単語トップ10</h3>
+            <h3 style={{ margin: '0 0 15px 0', fontSize: '16px', color: 'var(--text-h)', textAlign: 'left' }}>苦手な単語トップ10</h3>
             {weakRanking.length === 0 ? (
-              <p style={{ color: 'var(--text)', fontSize: '14px' }}>苦手な単語はありません。</p>
+              <p style={{ color: 'var(--text)', fontSize: '14px', textAlign: 'left' }}>苦手な単語はありません。</p>
             ) : (
-              <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '14px', color: 'var(--text-h)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '14px', color: 'var(--text-h)', display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'left' }}>
                 {weakRanking.map(r => (
-                  <li key={r.word_id}>
+                  <li key={r.word_id} style={{ wordBreak: 'break-word' }}>
                     <strong>{r.wordInfo.word}</strong> <span style={{ color: 'var(--text)' }}>({r.wordInfo.meaning})</span>
-                    <span style={{ color: '#e53935', fontWeight: 'bold', marginLeft: '10px' }}>ミス: {r.wrong_count}回</span>
+                    <span style={{ color: '#e53935', fontWeight: 'bold', marginLeft: '10px', whiteSpace: 'nowrap' }}>ミス: {r.wrong_count}回</span>
                   </li>
                 ))}
               </ul>

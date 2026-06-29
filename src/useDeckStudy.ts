@@ -1,4 +1,4 @@
-// src/useDeckStudy.ts
+// src/useDeckStudy.ts (全体)
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from './lib/supabase';
 import toshinDataRaw from './words_toshin1800.json';
@@ -194,13 +194,23 @@ export const useDeckStudy = (userId: string, deckId: string, partIndex: number =
     await supabase.from('progress').upsert([newProgress]);
   }, [userId, progressMap, globalCount]);
 
+  // 🌟 一度出題・解答した単語が絶対に「未学習」にならないための、安全で堅牢な集計ロジック
   const stats = useMemo(() => {
     const totalWords = words.length;
     const wordIds = new Set(words.map(w => w.id));
+    
+    // 現在のパート内の単語のうち、解答履歴がすでに存在するレコードのみを抽出
     const deckProgress = Object.values(progressMap).filter(p => wordIds.has(p.word_id));
+    
+    // 1. 習得済み: stage が 2 に達しているもの
     const learnedCount = deckProgress.filter(p => p.stage === 2).length;
-    const learningCount = deckProgress.filter(p => p.stage > -2 && p.stage < 2).length;
-    const unlearnedCount = totalWords - (learnedCount + learningCount);
+    
+    // 2. 学習中: 進捗レコード（解答履歴）が存在するが、まだ stage が 2 に達していないすべての単語
+    const learningCount = deckProgress.filter(p => p.stage !== 2).length;
+    
+    // 3. 未学習: 進捗レコード自体がまだ存在しない（一度も出題・解答されていない）単語
+    const unlearnedCount = totalWords - deckProgress.length;
+
     return { totalWords, learnedCount, learningCount, unlearnedCount, globalCount, weakWords: [] };
   }, [words, progressMap, globalCount]);
 

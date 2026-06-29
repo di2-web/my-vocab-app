@@ -50,6 +50,18 @@
   }
 }
 
+/* src/index.css (部分修正) */
+/* 50行目付近にある body の定義と、root の定義を以下のように修正・追記してください */
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  max-width: 100vw;
+  /* 💡 iOS Safariなどでの不意な左右の「ガタつき・横バウンス」を確実に防止します */
+  overflow-x: clip;
+}
+
 #root {
   width: 1126px;
   max-width: 100%;
@@ -60,10 +72,8 @@
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-}
-
-body {
-  margin: 0;
+  /* 💡 子要素が1pxでもはみ出さないようガードします */
+  overflow: hidden;
 }
 
 h1,
@@ -226,7 +236,7 @@ select:focus {
 
 /* レイアウト支援用コンテナ */
 .container {
-  max-width: 600px;
+  max-width: 900px;
   margin: 0 auto;
   padding: 20px;
 }
