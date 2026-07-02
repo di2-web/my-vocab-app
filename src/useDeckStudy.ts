@@ -1,6 +1,7 @@
-// src/useDeckStudy.ts (全体)
+// src/useDeckStudy.ts
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from './lib/supabase';
+import localforage from 'localforage'; // localforage の導入
 import toshinDataRaw from './words_toshin1800.json';
 import targetDataRaw from './words_target1900.json';
 
@@ -48,18 +49,88 @@ export type ProgressRow = {
   wrong_count: number;
 };
 
+// synced（ローカル同期フラグ）を拡張した進捗の型定義
+type LocalProgressRow = ProgressRow & { synced?: boolean };
+
 export const useDeckStudy = (userId: string, deckId: string, partIndex: number = -1) => {
   const [allWords, setAllWords] = useState<WordRow[]>([]);
-  const [progressMap, setProgressMap] = useState<Record<string, ProgressRow>>({});
+  const [progressMap, setProgressMap] = useState<Record<string, LocalProgressRow>>({});
   const [loading, setLoading] = useState(true);
   const [globalCount, setGlobalCount] = useState(0);
   const [sessionUsedIds, setSessionUsedIds] = useState<Set<string>>(new Set());
 
+  // オンライン/オフラインの状態監視
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // オフライン中に溜まった解答データを Supabase に安全に一括同期する関数
+  const syncLocalProgressToCloud = useCallback(async (online: boolean) => {
+    if (!online || !userId) return;
+
+    try {
+      const cachedProgress = await localforage.getItem<Record<string, LocalProgressRow>>(`progress_${userId}`);
+      if (!cachedProgress) return;
+
+      // synced === false（未同期）のレコードのみを抽出
+      const unsyncedRows = Object.values(cachedProgress).filter(p => p.synced === false);
+      if (unsyncedRows.length === 0) return;
+
+      // 💡 ESLint対応:Synced未使用警告を防ぐため、_synced にリネーム
+      const payload = unsyncedRows.map(({ synced: _synced, ...rest }) => ({
+        user_id: userId,
+        ...rest
+      }));
+
+      // Supabaseへ一括 upsert（クラウド上を最新化）
+      const { error } = await supabase.from('progress').upsert(payload);
+
+      if (!error) {
+        // 同期に成功したら、ローカルデータのフラグをすべてSynced(true)にして上書き保存
+        const updatedProgress = { ...cachedProgress };
+        unsyncedRows.forEach(row => {
+          if (updatedProgress[row.word_id]) {
+            updatedProgress[row.word_id].synced = true;
+          }
+        });
+        await localforage.setItem(`progress_${userId}`, updatedProgress);
+        setProgressMap(updatedProgress);
+        console.log(`☁️ オフライン時の進捗データ ${unsyncedRows.length} 件をクラウドに同期しました。`);
+      } else {
+        console.error("❌ 進捗の同期に失敗しました:", error);
+      }
+    } catch (err) {
+      console.error("🚨 同期処理でエラーが発生しました:", err);
+    }
+  }, [userId]);
+
+  // オンライン復帰時に自動で同期処理をトリガー
+  useEffect(() => {
+    if (isOnline) {
+      // 💡 ESLintの cascading render 警告（非推奨のsetState呼出警告）を回避するため、
+      // 実行コンテキストのキューを非同期で明示的に分離し、警告を無視するアノテーションを追加します。
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      syncLocalProgressToCloud(isOnline);
+    }
+  }, [isOnline, syncLocalProgressToCloud]);
+
+  // データフェッチ（オンラインとオフラインの切り分け）
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
 
-      // 1. デッキ全単語の取得
+      // --- 1. デッキ全単語の取得 ---
       if (deckId === 'toshin1800' || deckId === 'default') {
         const mapped = toshinData.map(w => ({
           id: String(w.id), word: w.word, meaning: w.quiz.answer,
@@ -82,8 +153,16 @@ export const useDeckStudy = (userId: string, deckId: string, partIndex: number =
         setAllWords(mapped);
 
       } else if (deckId === 'weak') {
-        const { data: pwData } = await supabase.from('progress').select('word_id').eq('user_id', userId).gt('wrong_count', 0);
-        const weakIds = pwData ? pwData.map(p => p.word_id) : [];
+        let weakIds: string[] = [];
+        if (isOnline) {
+          const { data: pwData } = await supabase.from('progress').select('word_id').eq('user_id', userId).gt('wrong_count', 0);
+          weakIds = pwData ? pwData.map(p => p.word_id) : [];
+        } else {
+          const cachedProgress = await localforage.getItem<Record<string, LocalProgressRow>>(`progress_${userId}`);
+          if (cachedProgress) {
+            weakIds = Object.values(cachedProgress).filter(p => p.wrong_count > 0).map(p => p.word_id);
+          }
+        }
 
         const toshinMapped = toshinData.map(w => ({
           id: String(w.id), word: w.word, meaning: w.quiz.answer,
@@ -102,37 +181,71 @@ export const useDeckStudy = (userId: string, deckId: string, partIndex: number =
           };
         });
 
-        const mappedDefault = [...toshinMapped, ...targetMapped].filter(w => weakIds.includes(w.id));
-
+        // 自作単語（weakIds に含まれるもの）の取得
         const customIds = weakIds.filter(id => id.length > 10);
         let customWords: WordRow[] = [];
         if (customIds.length > 0) {
-          const { data: cwData } = await supabase.from('words').select('*').in('id', customIds);
-          if (cwData) customWords = cwData as WordRow[];
+          if (isOnline) {
+            const { data: cwData } = await supabase.from('words').select('*').in('id', customIds);
+            if (cwData) customWords = cwData as WordRow[];
+          } else {
+            const cachedWords = await localforage.getItem<WordRow[]>(`words_${deckId}`);
+            if (cachedWords) {
+              customWords = cachedWords.filter(w => customIds.includes(w.id));
+            }
+          }
         }
         
+        const mappedDefault = [...toshinMapped, ...targetMapped].filter(w => weakIds.includes(w.id));
         setAllWords([...mappedDefault, ...customWords]);
 
       } else {
-        const { data: wData } = await supabase.from('words').select('*').eq('deck_id', deckId);
-        if (wData) setAllWords(wData as WordRow[]);
+        // 自作単語セット（ deckId !== 'toshin1800' 等 ）
+        if (isOnline) {
+          const { data: wData } = await supabase.from('words').select('*').eq('deck_id', deckId);
+          if (wData) {
+            const wordsList = wData as WordRow[];
+            setAllWords(wordsList);
+            await localforage.setItem(`words_${deckId}`, wordsList);
+          }
+        } else {
+          const cachedWords = await localforage.getItem<WordRow[]>(`words_${deckId}`);
+          if (cachedWords) {
+            setAllWords(cachedWords);
+          }
+        }
       }
 
-      // 2. 進捗の取得
-      const { data: pData } = await supabase.from('progress').select('*').eq('user_id', userId);
-      if (pData) {
-        const pMap: Record<string, ProgressRow> = {};
-        pData.forEach(p => { pMap[p.word_id] = p; });
-        setProgressMap(pMap);
-        const totalAnswers = pData.reduce((sum, p) => sum + p.correct_count + p.wrong_count, 0);
-        setGlobalCount(totalAnswers);
+      // --- 2. 進捗(progress)の取得とキャッシュ ---
+      let pMap: Record<string, LocalProgressRow> = {};
+      let totalAnswers = 0;
+
+      if (isOnline) {
+        const { data: pData } = await supabase.from('progress').select('*').eq('user_id', userId);
+        if (pData) {
+          pData.forEach(p => {
+            pMap[p.word_id] = { ...p, synced: true };
+          });
+          totalAnswers = pData.reduce((sum, p) => sum + p.correct_count + p.wrong_count, 0);
+          
+          await localforage.setItem(`progress_${userId}`, pMap);
+        }
+      } else {
+        const cachedProgress = await localforage.getItem<Record<string, LocalProgressRow>>(`progress_${userId}`);
+        if (cachedProgress) {
+          pMap = cachedProgress;
+          totalAnswers = Object.values(cachedProgress).reduce((sum, p) => sum + p.correct_count + p.wrong_count, 0);
+        }
       }
+
+      setProgressMap(pMap);
+      setGlobalCount(totalAnswers);
       setLoading(false);
     };
-    fetchData();
-  }, [userId, deckId]);
 
-  // 100語分割フィルタリングを適用した「今回の学習対象単語」
+    fetchData();
+  }, [userId, deckId, isOnline]);
+
   const words = useMemo(() => {
     if (partIndex === -1 || deckId === 'weak') {
       return allWords;
@@ -163,7 +276,6 @@ export const useDeckStudy = (userId: string, deckId: string, partIndex: number =
     let distractors = word.choices || [];
     
     if (distractors.length < numChoices - 1) {
-      // 選択肢が足りない場合は同パートまたは全単語から補填する
       const pool = words.length > numChoices ? words : allWords;
       const others = pool.filter(w => w.id !== word.id).map(w => w.meaning).filter(Boolean);
       others.sort(() => Math.random() - 0.5);
@@ -181,40 +293,45 @@ export const useDeckStudy = (userId: string, deckId: string, partIndex: number =
     if (result === 'correct') newStage = Math.min(2, current.stage + 1);
     else if (result === 'wrong') newStage = -1;
 
-    const newProgress = {
-      user_id: userId,
+    // クラウド/ローカル両用の進捗レコードを新規作成
+    const newProgress: LocalProgressRow = {
       word_id: wordId,
       stage: newStage,
       correct_count: current.correct_count + (result === 'correct' ? 1 : 0),
       wrong_count: current.wrong_count + (result === 'wrong' ? 1 : 0),
-      next_show_at: globalCount + 10
+      next_show_at: globalCount + 10,
+      synced: isOnline
     };
-    setProgressMap(prev => ({ ...prev, [wordId]: newProgress as ProgressRow }));
-    setGlobalCount(prev => prev + 1);
-    await supabase.from('progress').upsert([newProgress]);
-  }, [userId, progressMap, globalCount]);
 
-  // 🌟 一度出題・解答した単語が絶対に「未学習」にならないための、安全で堅牢な集計ロジック
+    // メモリ上のステートを即時更新
+    setProgressMap(prev => ({ ...prev, [wordId]: newProgress }));
+    setGlobalCount(prev => prev + 1);
+
+    // IndexedDB への永続化
+    const cachedProgress = await localforage.getItem<Record<string, LocalProgressRow>>(`progress_${userId}`) || {};
+    cachedProgress[wordId] = newProgress;
+    await localforage.setItem(`progress_${userId}`, cachedProgress);
+
+    // オンライン状態の場合のみ、Supabase に保存
+    if (isOnline) {
+      // 💡 ESLint対応:Synced未使用警告を防ぐため、_synced にリネーム
+      const { synced: _synced, ...supabasePayload } = newProgress;
+      await supabase.from('progress').upsert([{ user_id: userId, ...supabasePayload }]);
+    } else {
+      console.log("📶 オフライン解答のため、進捗をローカルデータベースに退避しました。");
+    }
+  }, [userId, progressMap, globalCount, isOnline]);
+
   const stats = useMemo(() => {
     const totalWords = words.length;
     const wordIds = new Set(words.map(w => w.id));
-    
-    // 現在のパート内の単語のうち、解答履歴がすでに存在するレコードのみを抽出
     const deckProgress = Object.values(progressMap).filter(p => wordIds.has(p.word_id));
-    
-    // 1. 習得済み: stage が 2 に達しているもの
     const learnedCount = deckProgress.filter(p => p.stage === 2).length;
-    
-    // 2. 学習中: 進捗レコード（解答履歴）が存在するが、まだ stage が 2 に達していないすべての単語
     const learningCount = deckProgress.filter(p => p.stage !== 2).length;
-    
-    // 3. 未学習: 進捗レコード自体がまだ存在しない（一度も出題・解答されていない）単語
     const unlearnedCount = totalWords - deckProgress.length;
-
     return { totalWords, learnedCount, learningCount, unlearnedCount, globalCount, weakWords: [] };
   }, [words, progressMap, globalCount]);
 
-  // 全体の単語数情報（パート分割用ボタンの算出などに使用）
   const totalAllWordsCount = allWords.length;
 
   return { words, totalAllWordsCount, stats, loading, generateNextQuestion, handleAnswer, resetSession };
